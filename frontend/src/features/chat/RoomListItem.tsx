@@ -16,9 +16,10 @@ export function RoomListItem({ room, isActive, onSelect }: RoomListItemProps) {
   const { onlineUserIds } = useChat();
 
   const isGroup = room.type === "group";
-  // DM partner isn't embedded in RoomListOut — only resolvable once the room
-  // is opened (RoomDetail.members). Until then, fall back to a generic label.
-  const title = isGroup ? room.name ?? "Group" : "Direct message";
+  const partner = isGroup
+    ? undefined
+    : room.members.find((m) => m.user.id !== user?.id)?.user;
+  const title = isGroup ? room.name ?? "Group" : partner?.username ?? "Direct message";
   const timestamp = room.last_message
     ? formatRoomTimestamp(room.last_message.created_at)
     : formatRoomTimestamp(room.created_at);
@@ -37,10 +38,10 @@ export function RoomListItem({ room, isActive, onSelect }: RoomListItemProps) {
       }`}
     >
       <Avatar
-        src={null}
+        src={partner?.avatar_url ?? null}
         alt={title}
         size={40}
-        presence={!isGroup ? (room.last_message && onlineUserIds.has(room.last_message.sender.id) ? "online" : "offline") : undefined}
+        presence={partner ? (onlineUserIds.has(partner.id) ? "online" : "offline") : undefined}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">

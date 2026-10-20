@@ -122,11 +122,11 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
             variant="secondary"
             disabled={submitting}
             onClick={onClose}
-            className="w-auto px-4"
+            fullWidth={false} className="px-4"
           >
             Cancel
           </Button>
-          <Button type="submit" isLoading={submitting} className="w-auto px-4">
+          <Button type="submit" isLoading={submitting} fullWidth={false} className="px-4">
             Change password
           </Button>
         </div>

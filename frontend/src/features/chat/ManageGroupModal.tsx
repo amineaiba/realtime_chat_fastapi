@@ -168,12 +168,12 @@ export function ManageGroupModal({ onClose }: ManageGroupModalProps) {
                 type="button"
                 variant="ghost-danger"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-auto px-4"
+                fullWidth={false} className="px-4"
               >
                 Delete room
               </Button>
               <div className="flex-1" />
-              <Button type="button" variant="secondary" onClick={onClose} className="w-auto px-4">
+              <Button type="button" variant="secondary" onClick={onClose} fullWidth={false} className="px-4">
                 Close
               </Button>
             </>
@@ -183,7 +183,7 @@ export function ManageGroupModal({ onClose }: ManageGroupModalProps) {
               variant="secondary"
               isLoading={busy}
               onClick={handleLeave}
-              className="w-auto px-4"
+              fullWidth={false} className="px-4"
             >
               Leave group
             </Button>

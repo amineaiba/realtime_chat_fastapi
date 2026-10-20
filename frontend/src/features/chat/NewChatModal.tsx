@@ -188,7 +188,7 @@ export function NewChatModal({ onClose }: NewChatModalProps) {
               isLoading={creating}
               disabled={creating || (attempted && createDisabled)}
               onClick={handleCreateGroup}
-              className="w-auto px-6"
+              fullWidth={false} className="px-6"
             >
               Create group
             </Button>

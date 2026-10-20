@@ -114,7 +114,7 @@ export function ProfileForm() {
               variant="secondary"
               disabled={saving}
               onClick={cancelEditing}
-              className="w-auto px-4"
+              fullWidth={false} className="px-4"
             >
               Cancel
             </Button>
@@ -122,7 +122,7 @@ export function ProfileForm() {
               type="button"
               isLoading={saving}
               onClick={saveChanges}
-              className="w-auto px-4"
+              fullWidth={false} className="px-4"
             >
               Save changes
             </Button>
@@ -132,7 +132,7 @@ export function ProfileForm() {
             type="button"
             variant="secondary"
             onClick={startEditing}
-            className="w-auto px-4"
+            fullWidth={false} className="px-4"
           >
             Edit profile
           </Button>
@@ -206,7 +206,7 @@ export function ProfileForm() {
         type="button"
         variant="secondary"
         onClick={() => void logout()}
-        className="w-auto gap-2 px-4"
+        fullWidth={false} className="gap-2 px-4"
       >
         <LogOut size={16} />
         Log out

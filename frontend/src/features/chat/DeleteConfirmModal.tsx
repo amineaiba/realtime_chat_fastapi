@@ -36,7 +36,7 @@ export function DeleteConfirmModal({
       size="sm"
       footer={
         <>
-          <Button type="button" variant="secondary" onClick={onCancel} className="w-auto px-4">
+          <Button type="button" variant="secondary" onClick={onCancel} fullWidth={false} className="px-4">
             Cancel
           </Button>
           <Button
@@ -44,7 +44,7 @@ export function DeleteConfirmModal({
             variant="danger"
             isLoading={deleting}
             onClick={handleDelete}
-            className="w-auto px-4"
+            fullWidth={false} className="px-4"
           >
             Delete
           </Button>

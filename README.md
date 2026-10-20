@@ -232,7 +232,7 @@ Send `Authorization: Bearer <access_token>` on protected routes. Interactive doc
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/chat/rooms/create` | Create a DM (returns the existing one if it exists) or a group |
-| `GET` | `/chat/rooms` | Your rooms, newest activity first, with unread count and last message |
+| `GET` | `/chat/rooms` | Your rooms, newest activity first, with members, unread count, and last message |
 | `GET` | `/chat/rooms/{room_id}` | Room detail with members |
 | `PATCH` | `/chat/rooms/{room_id}` | Rename a group (creator only) |
 | `DELETE` | `/chat/rooms/{room_id}` | Delete a group (creator only) |
@@ -256,7 +256,6 @@ Send `Authorization: Bearer <access_token>` on protected routes. Interactive doc
 
 Things I chose not to build yet:
 
-- **DM names in the room list.** The room list API has no member data, so DM rows say "Direct message" until you open them.
 - **File and image messages.** The message model supports them, but there is no upload endpoint yet. The paperclip button is disabled.
 - **Sidebar search** is disabled (no message search endpoint).
 - **Email verification and password reset.**

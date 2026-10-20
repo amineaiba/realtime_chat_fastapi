@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session, aliased, joinedload
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 
 from db_models.chat import Message, Room, RoomMember, RoomType
 from db_models.user import User
@@ -113,7 +113,13 @@ class ChatService:
             .outerjoin(
                 unread_count_subquery, Room.id == unread_count_subquery.c.room_id
             )
-            .options(joinedload(LatestMessage.sender).joinedload(User.profile))
+            .options(
+                joinedload(LatestMessage.sender).joinedload(User.profile),
+                # One extra query for all members, not one per room.
+                selectinload(Room.members)
+                .joinedload(RoomMember.user)
+                .joinedload(User.profile),
+            )
             .filter(RoomMember.user_id == user_id, Room.is_active.is_(True))
             .order_by(LatestMessage.created_at.desc().nullslast())
             .all()

@@ -85,6 +85,8 @@ class RoomListOut(RoomBase):
     # Metadata for the list view
     unread_count: Optional[int] = 0
     last_message: Optional[MessageOut] = None
+    # Lets the room list show a DM partner's name, avatar, and presence.
+    members: List[RoomMemberOut] = []
 
 
 class RoomDetailOut(RoomBase):

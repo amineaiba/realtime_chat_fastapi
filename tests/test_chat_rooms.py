@@ -168,3 +168,9 @@ def test_cannot_add_member_to_dm(alice, bob, carol):
         json={"user_to_add_id": carol.id},
     )
     assert res.status_code == 400
+
+
+def test_room_list_includes_members_so_dms_can_show_the_partner(alice, bob):
+    create_dm(alice, bob)
+    rooms = alice.client.get("/chat/rooms", headers=alice.headers).json()
+    assert {m["user"]["username"] for m in rooms[0]["members"]} == {"alice", "bob"}
