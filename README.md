@@ -1,25 +1,114 @@
-# Realtime Chat App
+# Realtime Chat
 
-A real-time chat application with JWT auth and refresh token rotation, room-based persistent messaging, user profiles with Cloudinary avatars, Redis-backed presence, and Socket.IO for real-time events.
+[![CI](https://github.com/amineaiba/realtime_chat_fastapi/actions/workflows/ci.yml/badge.svg)](https://github.com/amineaiba/realtime_chat_fastapi/actions/workflows/ci.yml)
 
-**Stack:** Python · FastAPI · PostgreSQL · SQLAlchemy · Socket.IO · Redis · Cloudinary · slowapi
+A real-time chat app with a FastAPI backend and a small React frontend.
+It has direct messages and group rooms, live messages, typing indicators, online status, and user profiles.
+
+The focus of this project is the backend: secure JWT auth with refresh token rotation, a clean layered design, Socket.IO on the same server as the REST API, and Redis for presence.
+
+**Stack:** Python · FastAPI · PostgreSQL · SQLAlchemy · Alembic · Socket.IO · Redis · Cloudinary · React · TypeScript · Tailwind · Docker · pytest · GitHub Actions
+
+![Group chat with live typing indicator](docs/screenshots/chat.png)
 
 ---
 
-## Live Demo
+## Features
 
-Hosted on:
-- **Backend (Render):** https://realtime-chat-fastapi.onrender.com/docs
-- **Database:** Neon (PostgreSQL)
-- **Cache / Presence:** Upstash (Redis)
+- **Auth:** register, login, logout, change password. Short-lived access token + single-use refresh token in an httpOnly cookie.
+- **Rooms:** direct messages (one room per pair of users) and group rooms with a creator who manages members.
+- **Messages:** saved in PostgreSQL, sent live over Socket.IO, cursor-based history, edit and soft delete.
+- **Unread counts:** per room and in total, in one query (no N+1).
+- **Presence and typing:** online status in Redis, typing indicators per room.
+- **Profiles:** bio, status, location, avatar upload to Cloudinary (JPEG/PNG/GIF/WebP, max 5 MB, checked by file content, not by the header).
+- **Rate limiting** on auth endpoints (per IP).
 
-> Note: Render free tier spins down after inactivity — first request may take ~30s to cold-start.
+## Screenshots
+
+| Group members and presence | Manage a group |
+|---|---|
+| ![Members panel](docs/screenshots/chat-members.png) | ![Manage group](docs/screenshots/manage-group.png) |
+
+| Profile | Login |
+|---|---|
+| ![Profile](docs/screenshots/profile.png) | ![Login](docs/screenshots/login.png) |
+
+| Mobile: rooms | Mobile: chat |
+|---|---|
+| <img src="docs/screenshots/mobile-rooms.png" width="260"> | <img src="docs/screenshots/mobile-chat.png" width="260"> |
+
+---
+
+## Run it locally
+
+You need Docker. One command starts the backend, the frontend, PostgreSQL, and Redis.
+
+```bash
+cp .env.docker.example .env.docker   # set SECRET_KEY to any random string
+docker compose up --build
+```
+
+- App: http://localhost:5173
+- API docs (Swagger): http://localhost:8000/docs
+
+The database tables are created by Alembic when the backend starts.
+
+**Demo data (optional).** Add three users, a group, and a DM:
+
+```bash
+docker compose exec backend python -m scripts.seed_demo
+```
+
+Log in as `sara@example.com`, `yacine@example.com`, or `lina@example.com`. The password is `Password1` for all of them. Open two browser windows with two users to see live messages, typing, and online status.
+
+Avatar upload needs real Cloudinary keys in `.env.docker`. Everything else works without them.
+
+### Without Docker
+
+You need Python 3.12, Node 20.19+ or 22, PostgreSQL, and Redis running on your machine.
+
+```bash
+# Backend
+cp .env.example .env            # then edit DATABASE_URL, REDIS_URL, SECRET_KEY
+uv venv --python 3.12 && source .venv/bin/activate
+uv pip install -r requirements.txt
+alembic upgrade head
+uvicorn main:app --reload
+
+# Frontend (second terminal)
+cd frontend
+cp .env.example .env            # VITE_API_URL=http://localhost:8000
+npm install
+npm run dev
+```
+
+`ALLOWED_ORIGINS` is a JSON list, for example `["http://localhost:5173"]`.
+
+---
+
+## Tests and CI
+
+The tests run against a real PostgreSQL and Redis (no mocks for the database), and they build the schema with the real Alembic migrations.
+
+```bash
+docker compose -f docker-compose.test.yml up -d   # test DB on port 55432, Redis on 56379
+uv pip install -r requirements-dev.txt
+pytest
+```
+
+What they cover:
+- register, login, refresh token rotation (an old refresh token is refused), logout (the access token is blocked), change password (all refresh tokens stop working)
+- Socket.IO: refresh tokens, logged-out tokens, and inactive users can't connect; deleted groups refuse join and send
+- DM rooms are not duplicated; only the group creator can rename, delete, add, or remove members
+- unread counts (your own messages are never unread)
+
+GitHub Actions runs `ruff check`, `ruff format --check`, and `pytest` for the backend, and `lint` + `build` for the frontend, on every push to `main` and on every pull request.
 
 ---
 
 ## Architecture
 
-Two parallel transport layers share a single ASGI process and the same JWT auth scheme:
+REST and Socket.IO run in one ASGI app and use the same JWT auth.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -35,169 +124,142 @@ Two parallel transport layers share a single ASGI process and the same JWT auth 
 │   AuthService           connect/disconnect   │
 │   ProfileService        join/leave room      │
 │   ChatService           send_message         │
-│        │                typing indicators    │
+│   UserService           typing indicators    │
 │        │                      │              │
 │   SQLAlchemy · Redis · core/security (JWT)   │
 └──────────────────────────────────────────────┘
 ```
 
-| Layer | Purpose |
+| Folder | Purpose |
 |---|---|
-| `routers/` | HTTP routing — thin, delegates all logic to services |
-| `services/` | Business logic — stateless classes with static methods |
-| `core/` | Shared infrastructure: DB, JWT, Redis, config, Socket.IO server |
-| `sockets/` | Real-time event handlers |
-| `db_models/` | SQLAlchemy ORM models |
-| `schemas/` | Pydantic request/response schemas with input validation |
+| `routers/` | HTTP routes. Thin: they call a service. |
+| `services/` | Business logic. |
+| `sockets/` | Socket.IO event handlers. |
+| `db_models/` | SQLAlchemy models. |
+| `schemas/` | Pydantic request and response models, with validation. |
+| `core/` | Config, database, JWT, Redis, cookies, logging, Socket.IO server. |
+| `alembic/` | Database migrations. |
+| `tests/` | pytest suite. |
+| `scripts/` | Demo seed script. |
+| `frontend/` | React app (see `frontend/README.md`). |
 
----
-
-## Data Model
+### Data model
 
 ```
 User ──────┬── Profile        (1:1, cascade delete)
-           ├── RefreshToken[] (1:N, cascade delete)
+           ├── RefreshToken[] (1:N)
            ├── RoomMember[]   (N:N bridge to Room)
            └── Message[]      (1:N as sender)
 
-Room ──────┬── RoomMember[]   (tracks joined_at, last_read_at per member)
-           └── Message[]      (cascade delete)
+Room ──────┬── RoomMember[]   (joined_at, last_read_at per member)
+           └── Message[]
 ```
 
-- `Room` supports two types: **DM** and **GROUP**
-- `Message` supports TEXT, IMAGE, and FILE types; has soft delete and edit tracking
-- All primary keys are UUIDs
+- A room is a **DM** or a **GROUP**. Groups can be soft-deleted (`is_active`).
+- Messages have edit and soft-delete flags.
+- All primary keys are UUIDs.
 
 ---
 
-## Auth
+## Auth design
 
-Tokens carry `sub` (user id) and `rt_id` (bound refresh token DB id), linking each access token to one session — logout deletes that row, no blocklist needed. Refresh tokens are single-use: rotation deletes the old row and inserts a new pair atomically. `change_password` wipes all refresh tokens at once (logs out every device). The `token_type` claim is checked on every protected route so refresh tokens can't be used as access tokens. Username format and password strength (uppercase + number required) are enforced at the Pydantic schema level. Auth endpoints are rate-limited per IP via slowapi.
+- The **access token** (30 min) carries `sub` (user id), `rt_id` (the id of its refresh token in the DB), and a unique `jti`. The frontend keeps it in memory only.
+- The **refresh token** (7 days) is stored in the DB and sent as an `httpOnly`, `Secure`, `SameSite=Strict` cookie, limited to the `/auth` path. JavaScript can't read it.
+- **Rotation:** each refresh deletes the old refresh token and creates a new pair. A refresh token works only once.
+- **Logout** deletes the refresh token of this session only (other devices stay logged in), and puts the access token's `jti` on a **Redis blocklist** until it expires. So a stolen access token stops working right away.
+- **Change password** deletes all refresh tokens of the user, so no device can refresh any more. Access tokens that are already out still work until they expire (max 30 minutes).
+- Protected routes check the token type, the blocklist, and that the user is active. A refresh token can't be used as an access token. The same checks apply to Socket.IO connections.
+- Passwords are hashed with bcrypt. Username format and password strength (uppercase + number) are checked by Pydantic.
 
 ---
 
-## Real-time Messaging
+## Real-time (Socket.IO)
 
-Socket.IO is mounted as an ASGI sub-app sharing the same process and JWT auth. The token is accepted via the `auth` payload (`{ token: "..." }`) or `?token=` query param. Online presence is stored in Redis, making it accurate across multiple workers. Users must explicitly join a Socket.IO room with `join_room` — membership is validated against the DB on every join, and `last_read_at` is updated. Messages are persisted to the database and broadcast to everyone in the room. Typing indicators are emitted to the room excluding the sender.
+Connect to `/socket.io` with the access token in the `auth` payload: `io(API_URL, { auth: { token } })`. Full event docs: [WEBSOCKET_API.md](WEBSOCKET_API.md).
 
-| Event (client → server) | Payload |
+| Client → server | Payload |
 |---|---|
-| `join_room` | `{ room_id }` |
+| `join_room` | `{ room_id }` (checks membership, marks the room as read) |
 | `leave_room` | `{ room_id }` |
-| `send_message` | `{ room_id, content }` |
+| `send_message` | `{ room_id, content }` (saved to DB, then sent to the room) |
+| `typing_start` / `typing_stop` | `{ room_id }` |
 | `get_online_users` | `{ room_id }` |
-| `typing_start` | `{ room_id }` |
-| `typing_stop` | `{ room_id }` |
 
-| Event (server → client) | Payload |
+| Server → client | Payload |
 |---|---|
 | `new_message` | `{ id, room_id, user_id, content, created_at }` |
 | `user_typing` | `{ room_id, user_id, username, is_typing }` |
-| `user_online` | `{ user_id }` |
-| `user_offline` | `{ user_id }` |
-| `online_users` | `{ room_id, users: [...] }` |
-| `room_joined` | `{ room_id, online_users }` |
-| `room_left` | `{ room_id }` |
+| `user_online` / `user_offline` | `{ user_id, message }` |
+| `room_joined` | `{ room_id, message, online_users }` |
+| `room_left` | `{ room_id, message }` |
+| `online_users` | `{ room_id, users }` |
+| `error` | `{ message }` |
 
 ---
 
-## API
+## REST API
 
-Auth: `Authorization: Bearer <access_token>`
+Send `Authorization: Bearer <access_token>` on protected routes. Interactive docs: http://localhost:8000/docs
 
-**Authentication**
+**Auth**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/auth/register` | Create account |
-| `POST` | `/auth/login` | Login, returns token pair |
-| `POST` | `/auth/refresh` | Rotate token pair |
-| `POST` | `/auth/logout` | Revoke current session |
-| `POST` | `/auth/change-password` | Change password + revoke all sessions |
+| `POST` | `/auth/register` | Create an account |
+| `POST` | `/auth/login` | Log in (form data: `username` = email, `password`). Returns the access token, sets the refresh cookie. |
+| `POST` | `/auth/refresh` | New token pair from the refresh cookie |
+| `POST` | `/auth/logout` | End this session |
+| `GET` | `/auth/me` | Current user |
+| `POST` | `/auth/change-password` | Change password and end all sessions |
 
 **Profile**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/profile/me` | Get own profile |
-| `PATCH` | `/profile/me/` | Update profile (bio, phone, location, date of birth) |
-| `POST` | `/profile/me/avatar` | Upload avatar to Cloudinary |
-| `DELETE` | `/profile/me/avatar` | Remove avatar |
+| `GET` | `/profile/me` | Your profile |
+| `PATCH` | `/profile/me/` | Update bio, status, phone, location, date of birth |
+| `POST` | `/profile/me/avatar` | Upload an avatar |
+| `DELETE` | `/profile/me/avatar` | Remove the avatar |
 
 **Users**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/users?q=` | Search users by username/email (min 2 chars), excludes self |
+| `GET` | `/users?q=` | Search users by username (min 2 chars, you are excluded) |
 
-**Chat — Rooms**
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/chat/rooms/create` | Create a DM or group room |
-| `GET` | `/chat/rooms` | List rooms you belong to |
-| `GET` | `/chat/rooms/{room_id}` | Room detail |
-| `PATCH` | `/chat/rooms/{room_id}` | Update room info |
-| `DELETE` | `/chat/rooms/{room_id}` | Delete room |
-| `POST` | `/chat/rooms/{room_id}/members/add` | Add member |
-| `DELETE` | `/chat/rooms/{room_id}/members/{user_id}/delete` | Remove member |
-| `PUT` | `/chat/rooms/{room_id}/mark-as-read` | Mark room as read |
-| `GET` | `/chat/unread-count` | Global unread count across all rooms |
-
-**Chat — Messages**
+**Rooms**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/chat/rooms/{room_id}/messages` | Paginated message history (cursor-based) |
-| `PATCH` | `/chat/messages/{message_id}` | Edit a message |
-| `DELETE` | `/chat/messages/{message_id}/delete` | Soft-delete a message |
+| `POST` | `/chat/rooms/create` | Create a DM (returns the existing one if it exists) or a group |
+| `GET` | `/chat/rooms` | Your rooms, newest activity first, with members, unread count, and last message |
+| `GET` | `/chat/rooms/{room_id}` | Room detail with members |
+| `PATCH` | `/chat/rooms/{room_id}` | Rename a group (creator only) |
+| `DELETE` | `/chat/rooms/{room_id}` | Delete a group (creator only) |
+| `POST` | `/chat/rooms/{room_id}/members/add` | Add a member (creator only) |
+| `DELETE` | `/chat/rooms/{room_id}/members/{user_id}/delete` | Remove a member (creator only) |
+| `DELETE` | `/chat/rooms/{room_id}/leave` | Leave a group (not for the creator) |
+| `PUT` | `/chat/rooms/{room_id}/mark-as-read` | Mark a room as read |
+| `GET` | `/chat/unread-count` | Total unread messages |
 
-Interactive docs: `http://localhost:8000/docs`
+**Messages**
 
----
-
-## Setup
-
-```bash
-pip install -r requirements.txt
-
-# .env required vars
-DATABASE_URL=postgresql://user:password@localhost/dbname
-SECRET_KEY=your-secret-key
-CLOUDINARY_CLOUD_NAME=...
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
-REDIS_URL=redis://localhost:6379
-
-alembic upgrade head
-uvicorn main:app --reload
-```
-
-Schema is managed by Alembic — no more manual DB resets. New model changes: `alembic revision --autogenerate -m "..."` then `alembic upgrade head`.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/chat/rooms/{room_id}/messages?before_id=&limit=` | History, cursor-based (max 100 per page) |
+| `PATCH` | `/chat/messages/{message_id}` | Edit your message |
+| `DELETE` | `/chat/messages/{message_id}/delete` | Soft-delete your message |
 
 ---
 
-## Frontend (local demo)
+## Known gaps
 
-React + Vite chat UI in `frontend/` — login/register, main chat (rooms, messages, typing, presence), group create/manage, profile page.
+Things I chose not to build yet:
 
-```bash
-cd frontend
-npm install
-
-# .env
-VITE_API_URL=http://localhost:8000
-
-npm run dev
-```
-
-Runs on `http://localhost:5173`.
-
----
-
-## Planned
-
-- Email verification on registration
-- OAuth2 social login (Google)
-- Password reset via email
-- File/image message attachments
+- **File and image messages.** The message model supports them, but there is no upload endpoint yet. The paperclip button is disabled.
+- **Sidebar search** is disabled (no message search endpoint).
+- **Email verification and password reset.**
+- **Rate limits on Socket.IO events.** Only the REST auth endpoints are rate-limited.
+- **Presence per user, not per tab.** Closing one of two tabs marks the user offline.
+- **Sync database access.** SQLAlchemy runs in sync mode. REST routes run in FastAPI's thread pool, but socket handlers call the DB inside async code. Moving to async SQLAlchemy is the next step for scale.
+- **Group admin roles.** Only the creator can manage a group.

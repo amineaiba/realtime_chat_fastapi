@@ -1,16 +1,17 @@
-from schemas.user import PasswordChange
-from fastapi import APIRouter, Body, Depends, status, Request, Response, HTTPException
 from typing import Annotated
-from db_models.user import User
-from sqlalchemy.orm import Session
-from schemas.user import UserCreate, UserOut
-from schemas.token import AccessToken
-from core.database import get_db
-from core.cookies import set_refresh_cookie, clear_refresh_cookie, REFRESH_COOKIE_NAME
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi.security import OAuth2PasswordRequestForm
-from dependancies import get_current_user, oauth2_scheme
+from sqlalchemy.orm import Session
+
+from core.cookies import REFRESH_COOKIE_NAME, clear_refresh_cookie, set_refresh_cookie
+from core.database import get_db
+from db_models.user import User
+from dependencies import get_current_user, oauth2_scheme
+from schemas.token import AccessToken
+from schemas.user import PasswordChange, UserCreate, UserOut
 from services.auth_service import AuthService
 
 limiter = Limiter(key_func=get_remote_address)
@@ -95,14 +96,3 @@ async def change_password(
     )
     clear_refresh_cookie(response)
     return result
-
-
-
-
-@router.get("/users")
-async def get_users(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    return 

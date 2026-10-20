@@ -1,44 +1,42 @@
-import redis
-import json
+import logging
+
+import redis.asyncio as redis
+
 from core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
-# Use Redis URL from environment for production (Upstash)
+# Async client, so Redis calls never block the event loop (Upstash in production).
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 
-async def set_user_online(user_id: str, ttl: int = 3600):
+async def set_user_online(user_id: str, ttl: int = 3600) -> None:
     """Mark user as online in Redis with TTL"""
-    key = f"user:{user_id}:status"
-    redis_client.setex(key, ttl, "online")
-    print(f" User {user_id} marked as online")
+    await redis_client.setex(f"user:{user_id}:status", ttl, "online")
+    logger.debug("User %s marked online", user_id)
 
 
-async def set_user_offline(user_id: str):
+async def set_user_offline(user_id: str) -> None:
     """Mark user as offline in Redis"""
-    key = f"user:{user_id}:status"
-    redis_client.delete(key)
-    print(f" User {user_id} marked as offline")
+    await redis_client.delete(f"user:{user_id}:status")
+    logger.debug("User %s marked offline", user_id)
 
 
 async def is_user_online(user_id: str) -> bool:
     """Check if user is online"""
-    key = f"user:{user_id}:status"
-    return redis_client.exists(key) > 0
+    return await redis_client.exists(f"user:{user_id}:status") > 0
 
 
-async def blocklist_token(jti: str, ttl_seconds: int):
+async def blocklist_token(jti: str, ttl_seconds: int) -> None:
     """Blocklist an access token's jti until it would have expired anyway"""
     if ttl_seconds <= 0:
         return
-    key = f"blocklist:{jti}"
-    redis_client.setex(key, ttl_seconds, "1")
+    await redis_client.setex(f"blocklist:{jti}", ttl_seconds, "1")
 
 
-async def is_token_blocklisted(jti: str) -> bool:
+async def is_token_blocklisted(jti: str | None) -> bool:
     """Check if an access token's jti has been revoked (e.g. via logout)"""
     if not jti:
         return False
-    key = f"blocklist:{jti}"
-    return redis_client.exists(key) > 0
+    return await redis_client.exists(f"blocklist:{jti}") > 0

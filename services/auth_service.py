@@ -1,27 +1,28 @@
 import logging
 from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from db_models.user import User
-from db_models.token import RefreshToken
-from db_models.profile import Profile
-from schemas.user import UserCreate
+
+from core.config import get_settings
+from core.redis_manager import blocklist_token
 from core.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
+    verify_password,
 )
-from core.redis_manager import blocklist_token
-from core.config import get_settings
+from db_models.profile import Profile
+from db_models.token import RefreshToken
+from db_models.user import User
+from schemas.user import UserCreate
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
 class AuthService:
-
     @staticmethod
     def register_user(db: Session, user_data: UserCreate) -> User:
         user_exists = (
@@ -35,7 +36,7 @@ class AuthService:
         if user_exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email or username allready registered",
+                detail="Email or username already registered",
             )
 
         hashed_psw = hash_password(user_data.password)
@@ -56,7 +57,7 @@ class AuthService:
             db.add(new_profile)
             db.commit()
             return new_user
-        except Exception as e:
+        except Exception:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -238,20 +239,3 @@ class AuthService:
         db.commit()
 
         return {"message": "Password updated"}
-
-    @staticmethod
-    def get_users(
-        db: Session,
-        user: User,
-        limit: int = 50,
-    ):
-        if limit > 100:
-            limit = 100
-
-        query = db.query(User)
-        
-        
-        users = query.limit(limit).all()
-        
-        return users
-        

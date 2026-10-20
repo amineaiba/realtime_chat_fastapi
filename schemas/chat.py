@@ -1,9 +1,11 @@
-from uuid import UUID
-from pydantic import BaseModel, Field
 from datetime import datetime
-from schemas.user import UserOut
-from typing import Optional, List
 from enum import Enum
+from typing import List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from schemas.user import UserOut
 
 
 class RoomTypeEnum(str, Enum):
@@ -44,18 +46,18 @@ class MessageOut(BaseModel):
 
     class Config:
         from_attributes = True
-    
-    
 
 
 # rooms schemas
 class RoomCreate(BaseModel):
     type: RoomTypeEnum = RoomTypeEnum.GROUP
     name: Optional[str] = None  # Required if group
-    member_ids: List[UUID] = [] 
-    
+    member_ids: List[UUID] = []
+
+
 class RoomUpdate(BaseModel):
-    name: Optional[str] = Field(None,min_length=1,max_length=100)
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+
 
 class RoomMemberOut(BaseModel):
     user: UserOut
@@ -79,12 +81,13 @@ class RoomBase(BaseModel):
         from_attributes = True
 
 
-
 class RoomListOut(RoomBase):
     # Metadata for the list view
     unread_count: Optional[int] = 0
     last_message: Optional[MessageOut] = None
+    # Lets the room list show a DM partner's name, avatar, and presence.
+    members: List[RoomMemberOut] = []
 
 
 class RoomDetailOut(RoomBase):
-    members: List[RoomMemberOut] 
+    members: List[RoomMemberOut]

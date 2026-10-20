@@ -1,32 +1,44 @@
-# React + TypeScript + Vite
+# Realtime Chat: frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A small React app to use and demo the backend API and Socket.IO events. The backend is the focus of this project, so the UI is kept simple.
 
-Currently, two official plugins are available:
+**Stack:** React 19 · TypeScript · Vite · Tailwind CSS v4 · React Router · axios · socket.io-client · lucide-react · oxlint
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env    # VITE_API_URL=http://localhost:8000
+npm install
+npm run dev             # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Other scripts: `npm run build`, `npm run lint`.
+
+To run everything with Docker instead, see the main [README](../README.md).
+
+## Structure
+
+| Folder | Purpose |
+|---|---|
+| `src/pages/` | Login, Register, Main chat, Profile |
+| `src/features/chat/` | Room list, messages, composer, group modals |
+| `src/features/profile/` | Profile form, avatar upload, change password |
+| `src/context/` | `AuthContext`, `SocketContext`, `ChatContext` (app state, no Redux) |
+| `src/components/ui/` | Shared UI: Button, TextInput, Avatar, Badge, Modal, Skeleton |
+| `src/lib/` | API clients (axios), time formatting, helpers |
+| `scripts/screenshots.mjs` | Playwright script that takes the README screenshots |
+
+## How auth works here
+
+- The access token lives **in memory only**, never in `localStorage`.
+- The refresh token is an `httpOnly` cookie set by the backend. On page load, the app calls `POST /auth/refresh` to restore the session.
+- If a request gets a `401`, the axios interceptor refreshes once and retries the request.
+- The Socket.IO client sends the access token in its `auth` payload, and reconnects with a fresh token.
+
+## Screenshots
+
+```bash
+# with the app running and the demo data seeded (see main README)
+npx playwright install chromium
+node scripts/screenshots.mjs    # writes to ../docs/screenshots/
+```

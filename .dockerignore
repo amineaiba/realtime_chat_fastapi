@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+.env
+.env.docker
+.git/
+.gitignore
+frontend/
+graphify-out/
+design/
+*.md
+tempCodeRunnerFile.py
+.vscode/
+.mypy_cache/

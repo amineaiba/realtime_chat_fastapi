@@ -1,11 +1,13 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List
+
 from core.database import get_db
-from services.user_service import UserService
-from schemas.user import UserSearchOut
 from db_models.user import User
-from dependancies import get_current_user
+from dependencies import get_current_user
+from schemas.user import UserSearchOut
+from services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 

@@ -1,18 +1,28 @@
-from sqlalchemy.orm import Session, aliased, joinedload
-from db_models.chat import Message, Room, RoomMember, RoomType
-from fastapi import HTTPException
-from uuid import UUID
+from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy import select, and_, func, join, or_
+from uuid import UUID
+
+from fastapi import HTTPException
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
+
+from db_models.chat import Message, Room, RoomMember, RoomType
 from db_models.user import User
-from datetime import datetime
 
 
 class ChatService:
+    @staticmethod
+    def _get_active_room(db: Session, room_id: UUID) -> Room:
+        """Load a room that is not soft-deleted, or raise 404."""
+        room = (
+            db.query(Room).filter(Room.id == room_id, Room.is_active.is_(True)).first()
+        )
+        if not room:
+            raise HTTPException(404, "Room not found")
+        return room
 
     @staticmethod
     def mark_as_read(db: Session, room_id: UUID, user_id: UUID):
-
         room_member = (
             db.query(RoomMember)
             .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
@@ -21,7 +31,7 @@ class ChatService:
         if not room_member:
             raise HTTPException(404, "user is not a member ")
 
-        room_member.last_read_at = datetime.now()
+        room_member.last_read_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(room_member)
 
@@ -41,7 +51,11 @@ class ChatService:
                 .joinedload(RoomMember.user)
                 .joinedload(User.profile)
             )
-            .filter(Room.id == room_id, RoomMember.user_id == user_id, Room.is_active == True)
+            .filter(
+                Room.id == room_id,
+                RoomMember.user_id == user_id,
+                Room.is_active.is_(True),
+            )
             .first()
         )
 
@@ -74,6 +88,7 @@ class ChatService:
             .where(
                 and_(
                     RoomMember.user_id == user_id,
+                    Message.sender_id != user_id,  # own messages are never unread
                     or_(
                         RoomMember.last_read_at.is_(None),
                         Message.created_at > RoomMember.last_read_at,
@@ -99,9 +114,13 @@ class ChatService:
                 unread_count_subquery, Room.id == unread_count_subquery.c.room_id
             )
             .options(
-                joinedload(LatestMessage.sender).joinedload(User.profile)
+                joinedload(LatestMessage.sender).joinedload(User.profile),
+                # One extra query for all members, not one per room.
+                selectinload(Room.members)
+                .joinedload(RoomMember.user)
+                .joinedload(User.profile),
             )
-            .filter(RoomMember.user_id == user_id, Room.is_active == True)
+            .filter(RoomMember.user_id == user_id, Room.is_active.is_(True))
             .order_by(LatestMessage.created_at.desc().nullslast())
             .all()
         )
@@ -174,11 +193,7 @@ class ChatService:
 
     @staticmethod
     def update_room(db: Session, room_id: UUID, user_id: UUID, room_data):
-
-        room = db.query(Room).filter(Room.id == room_id).first()
-
-        if not room:
-            raise HTTPException(404, "Room not found")
+        room = ChatService._get_active_room(db, room_id)
 
         if room.type != RoomType.GROUP:
             raise HTTPException(400, "Can only update group rooms")
@@ -198,11 +213,7 @@ class ChatService:
 
     @staticmethod
     def delete_room(db: Session, room_id: UUID, user_id: UUID):
-
-        room = db.query(Room).filter(Room.id == room_id).first()
-
-        if not room:
-            raise HTTPException(404, "Room not found")
+        room = ChatService._get_active_room(db, room_id)
 
         if room.type != RoomType.GROUP:
             raise HTTPException(400, "Can only delete group rooms")
@@ -235,12 +246,12 @@ class ChatService:
 
     @staticmethod
     def get_global_unread_count(db: Session, user_id: UUID):
-
         count = (
             db.query(func.count(Message.id))
             .join(RoomMember, RoomMember.room_id == Message.room_id)
             .filter(
                 RoomMember.user_id == user_id,
+                Message.sender_id != user_id,  # own messages are never unread
                 or_(
                     RoomMember.last_read_at.is_(
                         None
@@ -254,7 +265,6 @@ class ChatService:
 
     @staticmethod
     def edit_message(db: Session, message_id: UUID, user_id: UUID, new_content: str):
-
         message = (
             db.query(Message)
             .options(joinedload(Message.sender).joinedload(User.profile))
@@ -280,7 +290,6 @@ class ChatService:
 
     @staticmethod
     def delete_message(db: Session, user_id: UUID, message_id: UUID):
-
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
             raise HTTPException(404, "Message not found")
@@ -294,46 +303,34 @@ class ChatService:
 
     @staticmethod
     def add_member(db: Session, room_id: UUID, user_id: UUID, user_to_add_id: UUID):
-        # see if the room exist and its type is GROUP
-        # check if he is allready a memeber in that room
-        # add him if exists to room member table
-
-        room = db.query(Room).filter(Room.id == room_id).first()
-        if not room:
-            raise HTTPException(404, "Room not found")
+        room = ChatService._get_active_room(db, room_id)
 
         if room.type != RoomType.GROUP:
-            raise HTTPException(404, "you can only add members to group rooms")
+            raise HTTPException(400, "You can only add members to group rooms")
 
-        # better to change this (when implementing admins options in groups)
+        # Change this when group admin roles are added.
         if room.creator_id != user_id:
-            raise HTTPException(404, "only the room creator can add members ")
+            raise HTTPException(403, "Only the room creator can add members")
 
         user_to_add = db.query(User).filter(User.id == user_to_add_id).first()
         if not user_to_add:
             raise HTTPException(404, "User not found")
 
-        # check if the user to add already exists in the room
         existing = (
             db.query(RoomMember)
             .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_to_add_id)
             .first()
         )
         if existing:
-            raise HTTPException(404, "User allready exist in that room")
+            raise HTTPException(409, "User is already a member of this room")
 
-        # add memeber
         new_member = RoomMember(room_id=room_id, user_id=user_to_add_id)
         db.add(new_member)
         db.commit()
 
     @staticmethod
     def remove_member(db: Session, room_id: UUID, creator_id: UUID, user_id: UUID):
-
-        room = db.query(Room).filter(Room.id == room_id).first()
-
-        if not room:
-            raise HTTPException(404, "Room not found")
+        room = ChatService._get_active_room(db, room_id)
 
         if room.type != RoomType.GROUP:
             raise HTTPException(400, "Can only remove members from group rooms")
@@ -361,17 +358,15 @@ class ChatService:
 
     @staticmethod
     def leave_room(db: Session, room_id: UUID, user_id: UUID):
-
-        room = db.query(Room).filter(Room.id == room_id).first()
-
-        if not room:
-            raise HTTPException(404, "Room not found")
+        room = ChatService._get_active_room(db, room_id)
 
         if room.type != RoomType.GROUP:
             raise HTTPException(400, "Can only leave group rooms")
 
         if user_id == room.creator_id:
-            raise HTTPException(400, "Room creator cannot leave; delete the room instead")
+            raise HTTPException(
+                400, "Room creator cannot leave; delete the room instead"
+            )
 
         member = (
             db.query(RoomMember)
@@ -414,9 +409,7 @@ class ChatService:
         if not member:
             raise HTTPException(404, "You are not a member of this room")
 
-        room = db.query(Room).filter(Room.id == room_id, Room.is_active == True).first()
-        if not room:
-            raise HTTPException(404, "Room not found")
+        ChatService._get_active_room(db, room_id)  # 404 if the room was deleted
 
         # Limit max page size
         if limit > 100:

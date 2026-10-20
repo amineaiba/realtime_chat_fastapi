@@ -5,6 +5,9 @@ type ButtonVariant = "primary" | "secondary" | "danger" | "ghost-danger";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
   variant?: ButtonVariant;
+  // Full width by default (form submit buttons). Pass false for buttons that
+  // sit in a row, e.g. modal footers.
+  fullWidth?: boolean;
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -24,12 +27,13 @@ export function Button({
   children,
   className,
   variant = "primary",
+  fullWidth = true,
   ...props
 }: ButtonProps) {
   return (
     <button
       disabled={disabled || isLoading}
-      className={`inline-flex h-10 w-full items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-raised disabled:cursor-not-allowed ${variantClasses[variant]} ${className ?? ""}`}
+      className={`inline-flex h-10 ${fullWidth ? "w-full" : ""} items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-raised disabled:cursor-not-allowed ${variantClasses[variant]} ${className ?? ""}`}
       {...props}
     >
       {isLoading ? (

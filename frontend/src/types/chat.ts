@@ -49,6 +49,7 @@ export interface RoomSummary {
   updated_at: string | null;
   unread_count: number;
   last_message: Message | null;
+  members: RoomMember[];
 }
 
 // Mirrors schemas/chat.py::RoomDetailOut

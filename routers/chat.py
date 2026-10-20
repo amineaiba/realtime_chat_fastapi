@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, status, Body, Query
-from core.database import get_db
-from sqlalchemy.orm import Session
-from services.chat_services import ChatService
-from schemas.chat import RoomDetailOut, RoomCreate, MessageOut, MessageUpdate
 from typing import Annotated, List, Optional
-from db_models.user import User
-from dependancies import get_current_user
-from schemas.chat import RoomListOut, RoomDetailOut
 from uuid import UUID
-from schemas.chat import RoomUpdate
+
+from fastapi import APIRouter, Body, Depends, Query, status
+from sqlalchemy.orm import Session
+
+from core.database import get_db
+from db_models.user import User
+from dependencies import get_current_user
+from schemas.chat import (
+    MessageOut,
+    MessageUpdate,
+    RoomCreate,
+    RoomDetailOut,
+    RoomListOut,
+    RoomUpdate,
+)
+from services.chat_services import ChatService
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -30,7 +37,7 @@ def get_room_detail(
 ):
     room = ChatService.get_room_by_id(db, room_id, current_user.id)
     return RoomDetailOut.model_validate(room)
-  
+
 
 @router.get("/rooms", response_model=List[RoomListOut])
 def get_my_rooms(
@@ -38,7 +45,6 @@ def get_my_rooms(
 ):
     rooms = ChatService.get_user_rooms(db, current_user.id)
     return [RoomListOut.model_validate(room) for room in rooms]
-
 
 
 @router.post(
@@ -59,8 +65,6 @@ def create_room(
     return RoomDetailOut.model_validate(room)
 
 
-
-
 @router.patch("/rooms/{room_id}", response_model=RoomDetailOut)
 def update_room(
     room_id: UUID,
@@ -68,7 +72,6 @@ def update_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
     room = ChatService.update_room(db, room_id, current_user.id, room_data)
     return RoomDetailOut.model_validate(room)
 
@@ -79,7 +82,6 @@ def delete_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
     ChatService.delete_room(db, room_id, current_user.id)
     return {"message": "Room deleted successfully"}
 
@@ -135,7 +137,6 @@ def remove_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
     ChatService.remove_member(db, room_id, current_user.id, user_id)
     return {"message": "Member removed successfully"}
 

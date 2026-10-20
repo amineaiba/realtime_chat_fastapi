@@ -1,7 +1,10 @@
 __pycache__/
 venv/
+.venv/
 .env
 .env.render
+.env.docker
+docker-compose.override.yml
 .mypy_cache/
 .vscode/
 sockets/test_websocket.py
@@ -19,3 +22,9 @@ FRONTEND_DOCS.md
 LOCAL_DEVELOPMENT.md
 design/
 design_prompts.md
+# Local tooling output
+graphify-out/
+.scratch/
+docs/agents/
+.ruff_cache/
+.pytest_cache/
