@@ -4,11 +4,11 @@
 
 **Endpoint:** `/socket.io`  
 **Protocol:** Socket.IO over WebSocket  
-**Auth:** JWT token required
+**Auth:** a valid **access** token in the `auth` payload. The connection is refused if the token is missing, expired, a refresh token, or was revoked by logout. Tokens in the query string are not accepted (they leak into logs).
 
-```python
-# Connect with token
-socket.connect(auth={"token": "your-jwt-token"})
+```js
+// socket.io-client
+const socket = io(API_URL, { auth: { token: accessToken } });
 ```
 
 ---
@@ -25,19 +25,21 @@ Join a chat room to receive messages.
 }
 ```
 
-**Response:** `room_joined` event with online users list.
+**Response:** `room_joined` event with online users list. Joining also marks the room as read.
 
 ---
 
 ### `leave_room`
 
-Leave a chat room.
+Stop receiving events for a room (you stay a member).
 
 ```json
 {
   "room_id": "uuid"
 }
 ```
+
+**Response:** `room_left` event.
 
 ---
 
@@ -110,7 +112,7 @@ Received when someone sends a message in your room.
   "room_id": "room-uuid",
   "user_id": "sender-uuid",
   "content": "message text",
-  "created_at": "2026-02-13T10:30:00"
+  "created_at": "2026-02-13T10:30:00+00:00"
 }
 ```
 
@@ -133,12 +135,12 @@ Received when someone starts/stops typing.
 
 ### `user_online`
 
-Received when a user connects.
+Sent to every room the user belongs to when they connect.
 
 ```json
 {
   "user_id": "uuid",
-  "rooms": ["room1-uuid", "room2-uuid"]
+  "message": "User came online"
 }
 ```
 
@@ -146,12 +148,12 @@ Received when a user connects.
 
 ### `user_offline`
 
-Received when a user disconnects.
+Sent to every room the user belongs to when they disconnect.
 
 ```json
 {
   "user_id": "uuid",
-  "rooms": ["room1-uuid", "room2-uuid"]
+  "message": "User went offline"
 }
 ```
 
@@ -164,8 +166,21 @@ Confirmation after joining a room.
 ```json
 {
   "room_id": "room-uuid",
-  "message": "Joined room successfully",
+  "message": "Successfully joined room",
   "online_users": ["user1-uuid", "user2-uuid"]
+}
+```
+
+---
+
+### `room_left`
+
+Confirmation after leaving a room.
+
+```json
+{
+  "room_id": "room-uuid",
+  "message": "Successfully left room"
 }
 ```
 
