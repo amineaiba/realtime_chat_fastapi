@@ -20,7 +20,7 @@ app = FastAPI(
 
 REST API endpoints documented below.
 
-**WebSocket API:** [View WebSocket Documentation](https://github.com/AibaAmine/realtime_chat_fastapi/blob/main/WEBSOCKET_API.md)
+**WebSocket API:** [View WebSocket Documentation](https://github.com/amineaiba/realtime_chat_fastapi/blob/main/WEBSOCKET_API.md)
 
 ---
     """,
