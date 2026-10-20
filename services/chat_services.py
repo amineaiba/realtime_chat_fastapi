@@ -78,6 +78,7 @@ class ChatService:
             .where(
                 and_(
                     RoomMember.user_id == user_id,
+                    Message.sender_id != user_id,  # own messages are never unread
                     or_(
                         RoomMember.last_read_at.is_(None),
                         Message.created_at > RoomMember.last_read_at,
@@ -240,6 +241,7 @@ class ChatService:
             .join(RoomMember, RoomMember.room_id == Message.room_id)
             .filter(
                 RoomMember.user_id == user_id,
+                Message.sender_id != user_id,  # own messages are never unread
                 or_(
                     RoomMember.last_read_at.is_(
                         None
