@@ -129,3 +129,33 @@ def test_user_search_excludes_self(alice, bob):
     assert [u["username"] for u in res.json()] == ["bob"]
     res = alice.client.get("/users", headers=alice.headers, params={"q": "ali"})
     assert res.json() == []
+
+
+def test_non_creator_cannot_add_member(alice, bob, carol):
+    room = create_group(alice, [bob])
+    res = bob.client.post(
+        f"/chat/rooms/{room['id']}/members/add",
+        headers=bob.headers,
+        json={"user_to_add_id": carol.id},
+    )
+    assert res.status_code == 403
+
+
+def test_adding_existing_member_is_a_conflict(alice, bob):
+    room = create_group(alice, [bob])
+    res = alice.client.post(
+        f"/chat/rooms/{room['id']}/members/add",
+        headers=alice.headers,
+        json={"user_to_add_id": bob.id},
+    )
+    assert res.status_code == 409
+
+
+def test_cannot_add_member_to_dm(alice, bob, carol):
+    room = create_dm(alice, bob).json()
+    res = alice.client.post(
+        f"/chat/rooms/{room['id']}/members/add",
+        headers=alice.headers,
+        json={"user_to_add_id": carol.id},
+    )
+    assert res.status_code == 400

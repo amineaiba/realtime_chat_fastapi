@@ -95,14 +95,3 @@ async def change_password(
     )
     clear_refresh_cookie(response)
     return result
-
-
-
-
-@router.get("/users")
-async def get_users(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    return 

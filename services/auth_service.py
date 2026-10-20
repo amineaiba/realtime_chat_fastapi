@@ -35,7 +35,7 @@ class AuthService:
         if user_exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email or username allready registered",
+                detail="Email or username already registered",
             )
 
         hashed_psw = hash_password(user_data.password)
@@ -238,20 +238,3 @@ class AuthService:
         db.commit()
 
         return {"message": "Password updated"}
-
-    @staticmethod
-    def get_users(
-        db: Session,
-        user: User,
-        limit: int = 50,
-    ):
-        if limit > 100:
-            limit = 100
-
-        query = db.query(User)
-        
-        
-        users = query.limit(limit).all()
-        
-        return users
-        

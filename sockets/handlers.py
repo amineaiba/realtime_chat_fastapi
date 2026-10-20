@@ -1,13 +1,13 @@
 from core.socket_manager import sio
 from core.security import decode_token
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from db_models.user import User
 from sockets.helpers import get_user_rooms, get_online_users_in_room
 from core.database import SessionLocal
 from db_models.chat import RoomMember, Message
 from sqlalchemy.exc import SQLAlchemyError
-from core.redis_manager import set_user_offline
+from core.redis_manager import set_user_offline, is_token_blocklisted
 
 
 async def handle_connect(sid, environ, auth):
@@ -20,7 +20,11 @@ async def handle_connect(sid, environ, auth):
 
     # Validate Token
     payload = decode_token(token)
-    if not payload:
+    if not payload or payload.get("type") != "access":
+        return False
+
+    # Same rule as REST: a logged-out access token can't open a socket.
+    if await is_token_blocklisted(payload.get("jti")):
         return False
 
     user_id = payload.get("sub")
@@ -132,7 +136,7 @@ async def handle_join_room(sid, data):
 
             # Update last_read_at (mark as read)
 
-            member.last_read_at = datetime.utcnow()
+            member.last_read_at = datetime.now(timezone.utc)
             db.commit()
 
             # Join the SocketIO room
@@ -280,7 +284,7 @@ async def handle_send_message(sid, data):
                 room_id=room_id,
                 sender_id=user_id,
                 content=content.strip(),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
 
             db.add(message)

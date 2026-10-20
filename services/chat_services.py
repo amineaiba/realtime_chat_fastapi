@@ -294,35 +294,31 @@ class ChatService:
 
     @staticmethod
     def add_member(db: Session, room_id: UUID, user_id: UUID, user_to_add_id: UUID):
-        # see if the room exist and its type is GROUP
-        # check if he is allready a memeber in that room
-        # add him if exists to room member table
-
-        room = db.query(Room).filter(Room.id == room_id).first()
+        room = (
+            db.query(Room).filter(Room.id == room_id, Room.is_active == True).first()
+        )
         if not room:
             raise HTTPException(404, "Room not found")
 
         if room.type != RoomType.GROUP:
-            raise HTTPException(404, "you can only add members to group rooms")
+            raise HTTPException(400, "You can only add members to group rooms")
 
-        # better to change this (when implementing admins options in groups)
+        # Change this when group admin roles are added.
         if room.creator_id != user_id:
-            raise HTTPException(404, "only the room creator can add members ")
+            raise HTTPException(403, "Only the room creator can add members")
 
         user_to_add = db.query(User).filter(User.id == user_to_add_id).first()
         if not user_to_add:
             raise HTTPException(404, "User not found")
 
-        # check if the user to add already exists in the room
         existing = (
             db.query(RoomMember)
             .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_to_add_id)
             .first()
         )
         if existing:
-            raise HTTPException(404, "User allready exist in that room")
+            raise HTTPException(409, "User is already a member of this room")
 
-        # add memeber
         new_member = RoomMember(room_id=room_id, user_id=user_to_add_id)
         db.add(new_member)
         db.commit()
