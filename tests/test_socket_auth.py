@@ -1,7 +1,9 @@
 import pytest
 from conftest import run_async
 
+from core.database import SessionLocal
 from core.socket_manager import sio
+from db_models.user import User
 from sockets.handlers import handle_connect
 
 
@@ -38,4 +40,12 @@ def test_connect_with_refresh_token_is_refused(make_user, fake_transport):
 def test_connect_after_logout_is_refused(make_user, fake_transport):
     alice = make_user("alice")
     alice.client.post("/auth/logout", headers=alice.headers)
+    assert connect(alice.access_token) is False
+
+
+def test_connect_for_deactivated_user_is_refused(make_user, fake_transport):
+    alice = make_user("alice")
+    with SessionLocal() as db:
+        db.query(User).filter(User.id == alice.id).update({"is_active": False})
+        db.commit()
     assert connect(alice.access_token) is False

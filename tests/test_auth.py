@@ -82,7 +82,7 @@ def test_logout_blocks_access_token_and_refresh(make_user):
     assert refresh_with(refresh) == 401
 
 
-def test_change_password_logs_out_every_session(make_user, client):
+def test_change_password_ends_every_refresh_session(make_user, client):
     alice = make_user("alice")
     refresh = alice.client.cookies.get("refresh_token")
     res = alice.client.post(

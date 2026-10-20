@@ -35,12 +35,10 @@ async function shot(page, name) {
 await mkdir(OUT, { recursive: true });
 const browser = await chromium.launch();
 
-// Auth pages.
+// Login page.
 const anon = await (await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" })).newPage();
 await anon.goto(`${APP_URL}/login`);
 await shot(anon, "login");
-await anon.goto(`${APP_URL}/register`);
-await shot(anon, "register");
 
 // Two users online at once, so presence and typing show up.
 const sara = await login(browser, "sara", DESKTOP);

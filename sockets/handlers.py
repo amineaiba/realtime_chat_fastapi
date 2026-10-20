@@ -5,12 +5,16 @@ from uuid import UUID
 from sqlalchemy.exc import SQLAlchemyError
 
 from core.database import SessionLocal
-from core.redis_manager import is_token_blocklisted, set_user_offline
+from core.redis_manager import is_token_blocklisted, set_user_offline, set_user_online
 from core.security import decode_token
 from core.socket_manager import sio
 from db_models.chat import Message, RoomMember
 from db_models.user import User
-from sockets.helpers import get_online_users_in_room, get_user_rooms
+from sockets.helpers import (
+    get_active_membership,
+    get_online_users_in_room,
+    get_user_rooms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,19 +40,18 @@ async def handle_connect(sid, environ, auth):
     if not user_id:
         return False
 
+    with SessionLocal() as db:
+        user = db.get(User, UUID(user_id))
+        if user is None or not user.is_active:
+            return False
+
     #  Save Session
     await sio.save_session(sid, {"user_id": user_id})
     logger.info("User %s connected", user_id)
 
-    #  Mark user online in Redis
-    from core.redis_manager import set_user_online
-
     await set_user_online(user_id)
 
-    # Get all rooms user is member of
-    from core.database import SessionLocal
-    from sockets.helpers import get_user_rooms
-
+    # Tell every room the user belongs to that they came online
     db = SessionLocal()
     try:
         rooms = await get_user_rooms(user_id, db)
@@ -127,11 +130,7 @@ async def handle_join_room(sid, data):
 
         db = SessionLocal()
         try:
-            member = (
-                db.query(RoomMember)
-                .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
-                .first()
-            )
+            member = get_active_membership(db, room_id, user_id)
 
             if not member:
                 await sio.emit(
@@ -272,11 +271,7 @@ async def handle_send_message(sid, data):
         db = SessionLocal()
         try:
             # Check if user is member of room
-            member = (
-                db.query(RoomMember)
-                .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
-                .first()
-            )
+            member = get_active_membership(db, room_id, user_id)
 
             if not member:
                 await sio.emit(
@@ -396,11 +391,7 @@ async def handle_typing_start(sid, data):
         db = SessionLocal()
 
         # Validate user is member of room
-        member = (
-            db.query(RoomMember)
-            .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
-            .first()
-        )
+        member = get_active_membership(db, room_id, user_id)
 
         if not member:
             await sio.emit("error", {"message": "Not a member of this room"}, to=sid)
@@ -464,11 +455,7 @@ async def handle_typing_stop(sid, data):
         db = SessionLocal()
 
         # Validate user is member of room
-        member = (
-            db.query(RoomMember)
-            .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
-            .first()
-        )
+        member = get_active_membership(db, room_id, user_id)
 
         if not member:
             await sio.emit("error", {"message": "Not a member of this room"}, to=sid)

@@ -65,7 +65,7 @@ Avatar upload needs real Cloudinary keys in `.env.docker`. Everything else works
 
 ### Without Docker
 
-You need Python 3.12, Node 20+, PostgreSQL, and Redis running on your machine.
+You need Python 3.12, Node 20.19+ or 22, PostgreSQL, and Redis running on your machine.
 
 ```bash
 # Backend
@@ -97,8 +97,8 @@ pytest
 ```
 
 What they cover:
-- register, login, refresh token rotation (an old refresh token is refused), logout (the access token is blocked), change password (all sessions end)
-- Socket.IO connect: refresh tokens and logged-out tokens are refused
+- register, login, refresh token rotation (an old refresh token is refused), logout (the access token is blocked), change password (all refresh tokens stop working)
+- Socket.IO: refresh tokens, logged-out tokens, and inactive users can't connect; deleted groups refuse join and send
 - DM rooms are not duplicated; only the group creator can rename, delete, add, or remove members
 - unread counts (your own messages are never unread)
 
@@ -167,8 +167,8 @@ Room ──────┬── RoomMember[]   (joined_at, last_read_at per mem
 - The **refresh token** (7 days) is stored in the DB and sent as an `httpOnly`, `Secure`, `SameSite=Strict` cookie, limited to the `/auth` path. JavaScript can't read it.
 - **Rotation:** each refresh deletes the old refresh token and creates a new pair. A refresh token works only once.
 - **Logout** deletes the refresh token of this session only (other devices stay logged in), and puts the access token's `jti` on a **Redis blocklist** until it expires. So a stolen access token stops working right away.
-- **Change password** deletes all refresh tokens of the user (logs out every device).
-- Protected routes check the token type, so a refresh token can't be used as an access token. The same checks apply to Socket.IO connections.
+- **Change password** deletes all refresh tokens of the user, so no device can refresh any more. Access tokens that are already out still work until they expire (max 30 minutes).
+- Protected routes check the token type, the blocklist, and that the user is active. A refresh token can't be used as an access token. The same checks apply to Socket.IO connections.
 - Passwords are hashed with bcrypt. Username format and password strength (uppercase + number) are checked by Pydantic.
 
 ---
