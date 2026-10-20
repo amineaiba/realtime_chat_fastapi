@@ -1,13 +1,18 @@
-from core.socket_manager import sio
-from core.security import decode_token
-from uuid import UUID
+import logging
 from datetime import datetime, timezone
-from db_models.user import User
-from sockets.helpers import get_user_rooms, get_online_users_in_room
-from core.database import SessionLocal
-from db_models.chat import RoomMember, Message
+from uuid import UUID
+
 from sqlalchemy.exc import SQLAlchemyError
-from core.redis_manager import set_user_offline, is_token_blocklisted
+
+from core.database import SessionLocal
+from core.redis_manager import is_token_blocklisted, set_user_offline
+from core.security import decode_token
+from core.socket_manager import sio
+from db_models.chat import Message, RoomMember
+from db_models.user import User
+from sockets.helpers import get_online_users_in_room, get_user_rooms
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_connect(sid, environ, auth):
@@ -33,7 +38,7 @@ async def handle_connect(sid, environ, auth):
 
     #  Save Session
     await sio.save_session(sid, {"user_id": user_id})
-    print(f"User {user_id} connected")
+    logger.info("User %s connected", user_id)
 
     #  Mark user online in Redis
     from core.redis_manager import set_user_online
@@ -41,8 +46,8 @@ async def handle_connect(sid, environ, auth):
     await set_user_online(user_id)
 
     # Get all rooms user is member of
-    from sockets.helpers import get_user_rooms
     from core.database import SessionLocal
+    from sockets.helpers import get_user_rooms
 
     db = SessionLocal()
     try:
@@ -89,10 +94,10 @@ async def handle_disconnect(sid):
         finally:
             db.close()
 
-        print(f"User {user_id} disconnected")
+        logger.info("User %s disconnected", user_id)
 
-    except Exception as e:
-        print(f"Error in disconnect: {e}")
+    except Exception:
+        logger.exception("Error in disconnect")
 
 
 async def handle_join_room(sid, data):
@@ -156,18 +161,18 @@ async def handle_join_room(sid, data):
                 to=sid,
             )
 
-            print(f"User {user_id} joined room {room_id}")
+            logger.debug("User %s joined room %s", user_id, room_id)
 
-        except SQLAlchemyError as db_error:
-            print(f"Database error in join_room: {db_error}")
+        except SQLAlchemyError:
+            logger.exception("Database error in join_room")
             await sio.emit("error", {"message": "Database error occurred"}, to=sid)
 
         finally:
             if db:
                 db.close()
 
-    except Exception as e:
-        print(f"Error in join_room: {e}")
+    except Exception:
+        logger.exception("Error in join_room")
         await sio.emit("error", {"message": "Failed to join room"}, to=sid)
 
 
@@ -213,17 +218,17 @@ async def handle_leave_room(sid, data):
                 to=sid,
             )
 
-            print(f"User {user_id} left room {room_id}")
-        except SQLAlchemyError as db_error:
-            print(f"Database error in leave_room: {db_error}")
+            logger.debug("User %s left room %s", user_id, room_id)
+        except SQLAlchemyError:
+            logger.exception("Database error in leave_room")
             await sio.emit("error", {"message": "Database error occurred"}, to=sid)
 
         finally:
             if db:
                 db.close()
 
-    except Exception as e:
-        print(f"Error in leave_room: {e}")
+    except Exception:
+        logger.exception("Error in leave_room")
         await sio.emit("error", {"message": "Failed to leave room"}, to=sid)
 
 
@@ -304,10 +309,10 @@ async def handle_send_message(sid, data):
                 to=str(room_id),  # Send to all in room
             )
 
-            print(f"User {user_id} sent message to room {room_id}")
+            logger.debug("User %s sent message to room %s", user_id, room_id)
 
-        except SQLAlchemyError as db_error:
-            print(f"Database error in send_message: {db_error}")
+        except SQLAlchemyError:
+            logger.exception("Database error in send_message")
             db.rollback()
             await sio.emit("error", {"message": "Failed to send message"}, to=sid)
 
@@ -315,8 +320,8 @@ async def handle_send_message(sid, data):
             if db:
                 db.close()
 
-    except Exception as e:
-        print(f"Error in send_message: {e}")
+    except Exception:
+        logger.exception("Error in send_message")
         await sio.emit("error", {"message": "Failed to send message"}, to=sid)
 
 
@@ -351,10 +356,10 @@ async def handle_get_online_users(sid, data):
             "online_users", {"room_id": str(room_id), "users": online_users}, to=sid
         )
 
-        print(f"User {user_id} requested online users for room {room_id}")
+        logger.debug("User %s requested online users for room %s", user_id, room_id)
 
-    except Exception as e:
-        print(f"Error in get_online_users: {e}")
+    except Exception:
+        logger.exception("Error in get_online_users")
         await sio.emit("error", {"message": "Failed to get online users"}, to=sid)
 
     finally:
@@ -417,10 +422,10 @@ async def handle_typing_start(sid, data):
             skip_sid=sid,  # Don't send back to sender
         )
 
-        print(f"User {user_id} started typing in room {room_id}")
+        logger.debug("User %s started typing in room %s", user_id, room_id)
 
-    except Exception as e:
-        print(f"Error in typing_start: {e}")
+    except Exception:
+        logger.exception("Error in typing_start")
         await sio.emit(
             "error", {"message": "Failed to broadcast typing status"}, to=sid
         )
@@ -485,10 +490,10 @@ async def handle_typing_stop(sid, data):
             skip_sid=sid,  # Don't send back to sender
         )
 
-        print(f"User {user_id} stopped typing in room {room_id}")
+        logger.debug("User %s stopped typing in room %s", user_id, room_id)
 
-    except Exception as e:
-        print(f"Error in typing_stop: {e}")
+    except Exception:
+        logger.exception("Error in typing_stop")
         await sio.emit(
             "error", {"message": "Failed to broadcast typing status"}, to=sid
         )

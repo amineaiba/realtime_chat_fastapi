@@ -1,4 +1,5 @@
 import socketio
+
 from core.config import get_settings
 
 settings = get_settings()
@@ -16,8 +17,9 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     client_manager=mgr,
     cors_allowed_origins=[],
-    logger=True,  #  Enable logs
-    engineio_logger=True,  #  Enable low-level logs
+    # Socket.IO / Engine.IO traffic logs are very noisy; only show them in DEBUG.
+    logger=settings.DEBUG,
+    engineio_logger=settings.DEBUG,
 )
 
 

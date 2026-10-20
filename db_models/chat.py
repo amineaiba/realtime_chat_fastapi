@@ -1,10 +1,12 @@
-import uuid
 import enum
-from sqlalchemy import Column, String, ForeignKey, DateTime, Text, Enum, Boolean
-from sqlalchemy.orm import relationship
-from core.database import Base
+import uuid
+
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
+from core.database import Base
 
 
 # ---Enums---
@@ -36,8 +38,8 @@ class RoomMember(Base):
     )
 
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    #! see where is this gets updated 
+
+    #! see where is this gets updated
     last_read_at = Column(
         DateTime(timezone=True), server_default=func.now()
     )  # For calculating unread messages
@@ -49,7 +51,6 @@ class RoomMember(Base):
 
 
 class Room(Base):
-
     __tablename__ = "rooms"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)

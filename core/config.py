@@ -1,15 +1,15 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import List
 
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
-
     # Database
     DATABASE_URL: str
 
     # Redis
-    REDIS_URL: str 
+    REDIS_URL: str
 
     # Security
     SECRET_KEY: str

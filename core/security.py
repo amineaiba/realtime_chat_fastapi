@@ -1,9 +1,10 @@
-from passlib.context import CryptContext
-from datetime import timedelta, datetime, timezone
 import uuid
-import jwt  # this is pyjwt
-from core.config import get_settings
+from datetime import datetime, timedelta, timezone
 
+import jwt  # this is pyjwt
+from passlib.context import CryptContext
+
+from core.config import get_settings
 
 settings = get_settings()
 

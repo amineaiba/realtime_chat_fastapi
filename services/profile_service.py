@@ -1,10 +1,12 @@
 import logging
-from fastapi import HTTPException, status, UploadFile
+
+import cloudinary.uploader
+from fastapi import HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
+
 from db_models.profile import Profile
 from db_models.user import User
-from sqlalchemy.orm import Session
 from schemas.profile import ProfileUpdate
-import cloudinary.uploader
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +33,8 @@ def _sniff_image_format(header: bytes) -> str | None:
 
 
 class ProfileService:
-
     @staticmethod
     def get_user_profile(db: Session, user: User) -> Profile:
-
         profile = db.query(Profile).filter(Profile.user_id == user.id).first()
 
         if not profile:
@@ -48,7 +48,6 @@ class ProfileService:
     def update_user_profile(
         db: Session, user: User, profile_data: ProfileUpdate
     ) -> Profile:
-
         profile = db.query(Profile).filter(Profile.user_id == user.id).first()
 
         if not profile:
@@ -130,7 +129,9 @@ class ProfileService:
             try:
                 cloudinary.uploader.destroy(f"chat_app/avatars/user_{user.id}")
             except Exception as e:
-                logger.error("Cloudinary avatar delete failed for user %s: %s", user.id, e)
+                logger.error(
+                    "Cloudinary avatar delete failed for user %s: %s", user.id, e
+                )
 
         profile.avatar_url = None
 

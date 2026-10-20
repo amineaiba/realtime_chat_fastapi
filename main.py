@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from db_models import chat
-from routers import auth, profile, chat, users
+
+import core.cloudinary_config  # noqa: F401 — configures the cloudinary SDK on import
 from core.config import get_settings
 from core.logging_config import setup_logging
-import core.cloudinary_config  # noqa: F401 — configures the cloudinary SDK on import
-from core.socket_manager import sio, sio_app
-from sockets import events  # Register events
+from core.socket_manager import sio_app
+from routers import auth, chat, profile, users
+from sockets import events  # noqa: F401 — registers the Socket.IO handlers
 
 settings = get_settings()
 setup_logging()

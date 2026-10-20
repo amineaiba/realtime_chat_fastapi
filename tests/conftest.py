@@ -12,22 +12,33 @@ os.environ.setdefault("CLOUDINARY_CLOUD_NAME", "test")
 os.environ.setdefault("CLOUDINARY_API_KEY", "test")
 os.environ.setdefault("CLOUDINARY_API_SECRET", "test")
 
-from collections.abc import Callable, Iterator  # noqa: E402
+from collections.abc import Awaitable, Callable, Iterator  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
 
+import anyio.from_thread  # noqa: E402
 import pytest  # noqa: E402
-from alembic import command  # noqa: E402
+import redis  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
+from alembic import command  # noqa: E402
 from core.database import engine  # noqa: E402
-from core.redis_manager import redis_client  # noqa: E402
 from main import app  # noqa: E402
 from routers.auth import limiter  # noqa: E402
 
 PASSWORD = "Password1"
 TABLES = "messages, room_members, rooms, refresh_tokens, profiles, users"
+
+# One event loop for the whole run, like one uvicorn worker in production.
+# The async Redis pool is bound to the loop that opened its connections.
+_portal: anyio.from_thread.BlockingPortal | None = None
+
+
+def run_async(func: Callable[..., Awaitable], *args):
+    """Run app coroutines (e.g. socket handlers) on the shared test loop."""
+    assert _portal is not None
+    return _portal.call(func, *args)
 
 
 @dataclass
@@ -50,7 +61,13 @@ def database() -> Iterator[None]:
     command.downgrade(config, "base")
     command.upgrade(config, "head")
     limiter.enabled = False
-    yield
+
+    global _portal
+    with anyio.from_thread.start_blocking_portal() as portal:
+        _portal = portal
+        yield
+        _portal = None
+
     command.downgrade(config, "base")
 
 
@@ -59,12 +76,14 @@ def clean_state() -> Iterator[None]:
     yield
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {TABLES} CASCADE"))
-    redis_client.flushdb()
+    redis.from_url(os.environ["REDIS_URL"]).flushdb()
 
 
 def new_client() -> TestClient:
     # https, because the refresh cookie is Secure.
-    return TestClient(app, base_url="https://testserver")
+    client = TestClient(app, base_url="https://testserver")
+    client.portal = _portal
+    return client
 
 
 @pytest.fixture
@@ -88,6 +107,8 @@ def make_user() -> Callable[[str], LoggedInUser]:
 
         res = client.post("/auth/login", data={"username": email, "password": PASSWORD})
         assert res.status_code == 200, res.text
-        return LoggedInUser(user_id, username, email, res.json()["access_token"], client)
+        return LoggedInUser(
+            user_id, username, email, res.json()["access_token"], client
+        )
 
     return _make

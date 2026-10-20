@@ -1,6 +1,5 @@
-import asyncio
-
 import pytest
+from conftest import run_async
 
 from core.socket_manager import sio
 from sockets.handlers import handle_connect
@@ -19,7 +18,7 @@ def fake_transport(monkeypatch):
 
 def connect(token: str | None) -> bool:
     auth = {"token": token} if token else None
-    return asyncio.run(handle_connect("sid-1", {}, auth))
+    return run_async(handle_connect, "sid-1", {}, auth)
 
 
 def test_connect_with_access_token_is_accepted(make_user, fake_transport):

@@ -2,10 +2,10 @@ from core.socket_manager import sio
 from sockets.handlers import (
     handle_connect,
     handle_disconnect,
+    handle_get_online_users,
     handle_join_room,
     handle_leave_room,
     handle_send_message,
-    handle_get_online_users,
     handle_typing_start,
     handle_typing_stop,
 )

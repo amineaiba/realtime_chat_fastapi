@@ -30,8 +30,8 @@ async def get_online_users_in_room(room_id: str, db=None):
         close_db = False
 
     try:
-        from db_models.chat import RoomMember
         from core.redis_manager import is_user_online
+        from db_models.chat import RoomMember
 
         members = db.query(RoomMember).filter(RoomMember.room_id == room_id).all()
 

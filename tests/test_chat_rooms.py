@@ -69,7 +69,10 @@ def test_room_list_and_detail_for_members(alice, bob):
 
 def test_non_member_cannot_see_room_or_messages(alice, bob, carol):
     room = create_group(alice, [bob])
-    assert carol.client.get(f"/chat/rooms/{room['id']}", headers=carol.headers).status_code == 404
+    assert (
+        carol.client.get(f"/chat/rooms/{room['id']}", headers=carol.headers).status_code
+        == 404
+    )
     res = carol.client.get(f"/chat/rooms/{room['id']}/messages", headers=carol.headers)
     assert res.status_code == 404
 
@@ -78,7 +81,10 @@ def test_only_creator_can_update_group(alice, bob):
     room = create_group(alice, [bob])
     url = f"/chat/rooms/{room['id']}"
 
-    assert bob.client.patch(url, headers=bob.headers, json={"name": "Hacked"}).status_code == 403
+    assert (
+        bob.client.patch(url, headers=bob.headers, json={"name": "Hacked"}).status_code
+        == 403
+    )
 
     res = alice.client.patch(url, headers=alice.headers, json={"name": "Renamed"})
     assert res.status_code == 200
@@ -112,7 +118,10 @@ def test_creator_can_add_member(alice, bob, carol):
         json={"user_to_add_id": carol.id},
     )
     assert res.status_code == 200
-    assert carol.client.get(f"/chat/rooms/{room['id']}", headers=carol.headers).status_code == 200
+    assert (
+        carol.client.get(f"/chat/rooms/{room['id']}", headers=carol.headers).status_code
+        == 200
+    )
 
 
 def test_member_can_leave_but_creator_cannot(alice, bob):

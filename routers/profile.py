@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, status, UploadFile, File
-from sqlalchemy.orm import Session
-from dependancies import get_current_user
-from schemas.profile import ProfileResponse, ProfileUpdate
-from db_models.user import User
 from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from sqlalchemy.orm import Session
+
 from core.database import get_db
+from db_models.user import User
+from dependencies import get_current_user
+from schemas.profile import ProfileResponse, ProfileUpdate
 from services.profile_service import ProfileService
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
