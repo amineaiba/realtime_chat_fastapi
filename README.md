@@ -8,12 +8,14 @@ A real-time chat application with JWT auth and refresh token rotation, room-base
 
 ## Live Demo
 
-Hosted on:
-- **Backend (Render):** https://realtime-chat-fastapi.onrender.com/docs
+- **App (Vercel):** TODO — add Vercel URL after deploy
+- **Backend API (Render):** https://realtime-chat-fastapi.onrender.com/docs
 - **Database:** Neon (PostgreSQL)
 - **Cache / Presence:** Upstash (Redis)
 
 > Note: Render free tier spins down after inactivity — first request may take ~30s to cold-start.
+
+Want to run it yourself instead? See [Run locally with Docker](#run-locally-with-docker) below — one command, no manual setup.
 
 ---
 
@@ -156,7 +158,28 @@ Interactive docs: `http://localhost:8000/docs`
 
 ---
 
-## Setup
+## Run locally with Docker
+
+Spins up backend + frontend + Postgres + Redis together, no manual service setup.
+
+```bash
+cp .env.docker.example .env.docker
+# fill in SECRET_KEY (any random string) — Cloudinary vars are optional,
+# avatar upload just won't work locally without real credentials
+
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000/docs`
+
+`.env.docker` is gitignored — never commit real credentials there.
+
+---
+
+## Manual setup (without Docker)
+
+**Backend:**
 
 ```bash
 pip install -r requirements.txt
@@ -175,9 +198,7 @@ uvicorn main:app --reload
 
 Schema is managed by Alembic — no more manual DB resets. New model changes: `alembic revision --autogenerate -m "..."` then `alembic upgrade head`.
 
----
-
-## Frontend (local demo)
+**Frontend:**
 
 React + Vite chat UI in `frontend/` — login/register, main chat (rooms, messages, typing, presence), group create/manage, profile page.
 
